@@ -1,6 +1,6 @@
 {
-  "name": "rc-tree",
-  "version": "3.1.2",
+  "name": "@gem-mine/rmc-tree",
+  "version": "1.0.0",
   "description": "tree ui component for react",
   "engines": {
     "node": ">=8.x"
@@ -70,7 +70,6 @@
     "prop-types": "^15.5.8",
     "rc-animate": "^2.9.2",
     "rc-util": "^4.11.0",
-    "rc-virtual-list": "^1.1.0",
-    "react-lifecycles-compat": "^3.0.4"
+    "rc-virtual-list": "^1.1.0"
   }
 }

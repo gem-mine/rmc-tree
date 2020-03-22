@@ -25,9 +25,6 @@ export interface EventDataNode extends Omit<DataNode, 'children'> {
   loaded: boolean;
   loading: boolean;
   halfChecked: boolean;
-  dragOver: boolean;
-  dragOverGapTop: boolean;
-  dragOverGapBottom: boolean;
   pos: string;
   active: boolean;
 }

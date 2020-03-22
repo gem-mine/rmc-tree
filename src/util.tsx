@@ -5,11 +5,8 @@
 import React from 'react';
 import warning from 'rc-util/lib/warning';
 import TreeNode, { TreeNodeProps } from './TreeNode';
-import { NodeElement, Key, DataNode, Entity, DataEntity, NodeInstance } from './interface';
+import { NodeElement, Key, DataNode, Entity, DataEntity } from './interface';
 import { TreeProps } from './Tree';
-
-const DRAG_SIDE_RANGE = 0.25;
-const DRAG_MIN_GAP = 2;
 
 export function arrDel(list: Key[], value: Key) {
   const clone = list.slice();
@@ -38,38 +35,6 @@ export function getPosition(level: string | number, index: number) {
 
 export function isTreeNode(node: NodeElement) {
   return node && node.type && node.type.isTreeNode;
-}
-
-export function getDragNodesKeys(dragNodeKey: Key, keyEntities: Record<Key, DataEntity>): Key[] {
-  const dragNodesKeys = [dragNodeKey];
-
-  const entity = keyEntities[dragNodeKey];
-  function dig(list: DataEntity[] = []) {
-    list.forEach(({ key, children }) => {
-      dragNodesKeys.push(key);
-      dig(children);
-    });
-  }
-
-  dig(entity.children);
-
-  return dragNodesKeys;
-}
-
-// Only used when drag, not affect SSR.
-export function calcDropPosition(event: React.MouseEvent, treeNode: NodeInstance) {
-  const { clientY } = event;
-  const { top, bottom, height } = treeNode.selectHandle.getBoundingClientRect();
-  const des = Math.max(height * DRAG_SIDE_RANGE, DRAG_MIN_GAP);
-
-  if (clientY <= top + des) {
-    return -1;
-  }
-  if (clientY >= bottom - des) {
-    return 1;
-  }
-
-  return 0;
 }
 
 /**
@@ -151,15 +116,15 @@ export function parseCheckedKeys(keys: Key[] | { checked: Key[]; halfChecked: Ke
  * @param keyEntities
  */
 export function conductExpandParent(keyList: Key[], keyEntities: Record<Key, DataEntity>) {
-  const expandedKeys = {};
+  const treeExpandedKeys = {};
 
   function conductUp(key: Key) {
-    if (expandedKeys[key]) return;
+    if (treeExpandedKeys[key]) return;
 
     const entity = keyEntities[key];
     if (!entity) return;
 
-    expandedKeys[key] = true;
+    treeExpandedKeys[key] = true;
 
     const { parent, node } = entity;
 
@@ -174,7 +139,7 @@ export function conductExpandParent(keyList: Key[], keyEntities: Record<Key, Dat
     conductUp(key);
   });
 
-  return Object.keys(expandedKeys);
+  return Object.keys(treeExpandedKeys);
 }
 
 /**

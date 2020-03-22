@@ -3,22 +3,17 @@
 
 import * as React from 'react';
 import PropTypes from 'prop-types';
-import KeyCode from 'rc-util/lib/KeyCode';
 import warning from 'rc-util/lib/warning';
 import classNames from 'classnames';
-import { polyfill } from 'react-lifecycles-compat';
 
 import { TreeContext } from './contextTypes';
 import {
   getDataAndAria,
-  getDragNodesKeys,
   parseCheckedKeys,
   conductExpandParent,
   calcSelectedKeys,
-  calcDropPosition,
   arrAdd,
   arrDel,
-  posToArr,
 } from './util';
 import {
   DataNode,
@@ -27,7 +22,6 @@ import {
   FlattenNode,
   DataEntity,
   EventDataNode,
-  NodeInstance,
   ScrollTo,
 } from './interface';
 import {
@@ -35,8 +29,6 @@ import {
   convertTreeToData,
   convertDataToEntities,
   warningWithoutKey,
-  convertNodePropsToEventData,
-  getTreeNodeProps,
 } from './utils/treeUtil';
 import NodeList, { MOTION_KEY, MotionEntity, NodeListRef } from './NodeList';
 import TreeNode from './TreeNode';
@@ -68,12 +60,11 @@ export interface TreeProps {
   multiple?: boolean;
   checkable?: boolean | React.ReactNode;
   checkStrictly?: boolean;
-  draggable?: boolean;
   defaultExpandParent?: boolean;
   autoExpandParent?: boolean;
   defaultExpandAll?: boolean;
-  defaultExpandedKeys?: Key[];
-  expandedKeys?: Key[];
+  treeDefaultExpandedKeys?: Key[];
+  treeExpandedKeys?: Key[];
   defaultCheckedKeys?: Key[];
   checkedKeys?: Key[] | { checked: Key[]; halfChecked: Key[] };
   defaultSelectedKeys?: Key[];
@@ -83,8 +74,8 @@ export interface TreeProps {
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onClick?: (e: React.MouseEvent, treeNode: EventDataNode) => void;
   onDoubleClick?: (e: React.MouseEvent, treeNode: EventDataNode) => void;
-  onExpand?: (
-    expandedKeys: Key[],
+  onTreeExpand?: (
+    treeExpandedKeys: Key[],
     info: {
       node: EventDataNode;
       expanded: boolean;
@@ -114,23 +105,7 @@ export interface TreeProps {
   onMouseEnter?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
   onMouseLeave?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
   onRightClick?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
-  onDragStart?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
-  onDragEnter?: (info: {
-    event: React.MouseEvent;
-    node: EventDataNode;
-    expandedKeys: Key[];
-  }) => void;
-  onDragOver?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
-  onDragLeave?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
-  onDragEnd?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
-  onDrop?: (info: {
-    event: React.MouseEvent;
-    node: EventDataNode;
-    dragNode: EventDataNode;
-    dragNodesKeys: Key[];
-    dropPosition: number;
-    dropToGap: boolean;
-  }) => void;
+
   /**
    * Used for `rc-tree-select` only.
    * Do not use in your production code directly since this will be refactor.
@@ -154,12 +129,7 @@ interface TreeState {
   halfCheckedKeys: Key[];
   loadedKeys: Key[];
   loadingKeys: Key[];
-  expandedKeys: Key[];
-
-  dragging: boolean;
-  dragNodesKeys: Key[];
-  dragOverNodeKey: Key;
-  dropPosition: number;
+  treeExpandedKeys: Key[];
 
   treeData: DataNode[];
   flattenNodes: FlattenNode[];
@@ -188,19 +158,18 @@ class Tree extends React.Component<TreeProps, TreeState> {
     multiple: PropTypes.bool,
     checkable: PropTypes.oneOfType([PropTypes.bool, PropTypes.node]),
     checkStrictly: PropTypes.bool,
-    draggable: PropTypes.bool,
     defaultExpandParent: PropTypes.bool,
     autoExpandParent: PropTypes.bool,
     defaultExpandAll: PropTypes.bool,
-    defaultExpandedKeys: PropTypes.arrayOf(keyPropType),
-    expandedKeys: PropTypes.arrayOf(keyPropType),
+    treeDefaultExpandedKeys: PropTypes.arrayOf(keyPropType),
+    treeExpandedKeys: PropTypes.arrayOf(keyPropType),
     defaultCheckedKeys: PropTypes.arrayOf(keyPropType),
     checkedKeys: PropTypes.oneOfType([PropTypes.arrayOf(keyPropType), PropTypes.object]),
     defaultSelectedKeys: PropTypes.arrayOf(keyPropType),
     selectedKeys: PropTypes.arrayOf(keyPropType),
     onClick: PropTypes.func,
     onDoubleClick: PropTypes.func,
-    onExpand: PropTypes.func,
+    onTreeExpand: PropTypes.func,
     onCheck: PropTypes.func,
     onSelect: PropTypes.func,
     onLoad: PropTypes.func,
@@ -209,12 +178,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
     onMouseEnter: PropTypes.func,
     onMouseLeave: PropTypes.func,
     onRightClick: PropTypes.func,
-    onDragStart: PropTypes.func,
-    onDragEnter: PropTypes.func,
-    onDragOver: PropTypes.func,
-    onDragLeave: PropTypes.func,
-    onDragEnd: PropTypes.func,
-    onDrop: PropTypes.func,
     filterTreeNode: PropTypes.func,
     motion: PropTypes.object,
     switcherIcon: PropTypes.oneOfType([PropTypes.node, PropTypes.func]),
@@ -229,18 +192,15 @@ class Tree extends React.Component<TreeProps, TreeState> {
     checkable: false,
     disabled: false,
     checkStrictly: false,
-    draggable: false,
     defaultExpandParent: true,
     autoExpandParent: false,
     defaultExpandAll: false,
-    defaultExpandedKeys: [],
+    treeDefaultExpandedKeys: [],
     defaultCheckedKeys: [],
     defaultSelectedKeys: [],
   };
 
   static TreeNode = TreeNode;
-
-  delayedDragEnterLogic: Record<Key, number>;
 
   state: TreeState = {
     keyEntities: {},
@@ -250,12 +210,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
     halfCheckedKeys: [],
     loadedKeys: [],
     loadingKeys: [],
-    expandedKeys: [],
-
-    dragging: false,
-    dragNodesKeys: [],
-    dragOverNodeKey: null,
-    dropPosition: null,
+    treeExpandedKeys: [],
 
     treeData: [],
     flattenNodes: [],
@@ -265,8 +220,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
     prevProps: null,
   };
-
-  dragNode: NodeInstance;
 
   listRef = React.createRef<NodeListRef>();
 
@@ -308,32 +261,34 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
     const keyEntities = newState.keyEntities || prevState.keyEntities;
 
-    // ================ expandedKeys =================
-    if (needSync('expandedKeys') || (prevProps && needSync('autoExpandParent'))) {
-      newState.expandedKeys =
+    // ================ treeExpandedKeys =================
+    if (needSync('treeExpandedKeys') || (prevProps && needSync('autoExpandParent'))) {
+      newState.treeExpandedKeys =
         props.autoExpandParent || (!prevProps && props.defaultExpandParent)
-          ? conductExpandParent(props.expandedKeys, keyEntities)
-          : props.expandedKeys;
+          ? conductExpandParent(props.treeExpandedKeys, keyEntities)
+          : props.treeExpandedKeys;
     } else if (!prevProps && props.defaultExpandAll) {
       const cloneKeyEntities = { ...keyEntities };
       delete cloneKeyEntities[MOTION_KEY];
-      newState.expandedKeys = Object.keys(cloneKeyEntities).map(key => cloneKeyEntities[key].key);
-    } else if (!prevProps && props.defaultExpandedKeys) {
-      newState.expandedKeys =
+      newState.treeExpandedKeys = Object.keys(cloneKeyEntities).map(
+        key => cloneKeyEntities[key].key,
+      );
+    } else if (!prevProps && props.treeDefaultExpandedKeys) {
+      newState.treeExpandedKeys =
         props.autoExpandParent || props.defaultExpandParent
-          ? conductExpandParent(props.defaultExpandedKeys, keyEntities)
-          : props.defaultExpandedKeys;
+          ? conductExpandParent(props.treeDefaultExpandedKeys, keyEntities)
+          : props.treeDefaultExpandedKeys;
     }
 
-    if (!newState.expandedKeys) {
-      delete newState.expandedKeys;
+    if (!newState.treeExpandedKeys) {
+      delete newState.treeExpandedKeys;
     }
 
     // ================ flattenNodes =================
-    if (treeData || newState.expandedKeys) {
+    if (treeData || newState.treeExpandedKeys) {
       const flattenNodes: FlattenNode[] = flattenTreeData(
         treeData || prevState.treeData,
-        newState.expandedKeys || prevState.expandedKeys,
+        newState.treeExpandedKeys || prevState.treeExpandedKeys,
       );
       newState.flattenNodes = flattenNodes;
     }
@@ -383,187 +338,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
     return newState;
   }
-
-  onNodeDragStart = (event: React.MouseEvent<HTMLDivElement>, node: NodeInstance) => {
-    const { expandedKeys, keyEntities } = this.state;
-    const { onDragStart } = this.props;
-    const { eventKey } = node.props;
-
-    this.dragNode = node;
-
-    this.setState({
-      dragging: true,
-      dragNodesKeys: getDragNodesKeys(eventKey, keyEntities),
-      expandedKeys: arrDel(expandedKeys, eventKey),
-    });
-
-    if (onDragStart) {
-      onDragStart({ event, node: convertNodePropsToEventData(node.props) });
-    }
-  };
-
-  /**
-   * [Legacy] Select handler is less small than node,
-   * so that this will trigger when drag enter node or select handler.
-   * This is a little tricky if customize css without padding.
-   * Better for use mouse move event to refresh drag state.
-   * But let's just keep it to avoid event trigger logic change.
-   */
-  onNodeDragEnter = (event: React.MouseEvent<HTMLDivElement>, node: NodeInstance) => {
-    const { expandedKeys, keyEntities } = this.state;
-    const { onDragEnter } = this.props;
-    const { pos, eventKey } = node.props;
-
-    if (!this.dragNode) return;
-
-    const dropPosition = calcDropPosition(event, node);
-
-    // Skip if drag node is self
-    if (this.dragNode.props.eventKey === eventKey && dropPosition === 0) {
-      this.setState({
-        dragOverNodeKey: '',
-        dropPosition: null,
-      });
-      return;
-    }
-
-    // Ref: https://github.com/react-component/tree/issues/132
-    // Add timeout to let onDragLevel fire before onDragEnter,
-    // so that we can clean drag props for onDragLeave node.
-    // Macro task for this:
-    // https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script
-    setTimeout(() => {
-      // Update drag over node
-      this.setState({
-        dragOverNodeKey: eventKey,
-        dropPosition,
-      });
-
-      // Side effect for delay drag
-      if (!this.delayedDragEnterLogic) {
-        this.delayedDragEnterLogic = {};
-      }
-      Object.keys(this.delayedDragEnterLogic).forEach(key => {
-        clearTimeout(this.delayedDragEnterLogic[key]);
-      });
-      this.delayedDragEnterLogic[pos] = window.setTimeout(() => {
-        if (!this.state.dragging) return;
-
-        let newExpandedKeys = [...expandedKeys];
-        const entity = keyEntities[eventKey];
-
-        if (entity && (entity.children || []).length) {
-          newExpandedKeys = arrAdd(expandedKeys, eventKey);
-        }
-
-        if (!('expandedKeys' in this.props)) {
-          this.setState({
-            expandedKeys: newExpandedKeys,
-          });
-        }
-
-        if (onDragEnter) {
-          onDragEnter({
-            event,
-            node: convertNodePropsToEventData(node.props),
-            expandedKeys: newExpandedKeys,
-          });
-        }
-      }, 400);
-    }, 0);
-  };
-
-  onNodeDragOver = (event: React.MouseEvent<HTMLDivElement>, node: NodeInstance) => {
-    const { onDragOver } = this.props;
-    const { eventKey } = node.props;
-
-    // Update drag position
-    if (this.dragNode && eventKey === this.state.dragOverNodeKey) {
-      const dropPosition = calcDropPosition(event, node);
-
-      if (dropPosition === this.state.dropPosition) return;
-
-      this.setState({
-        dropPosition,
-      });
-    }
-
-    if (onDragOver) {
-      onDragOver({ event, node: convertNodePropsToEventData(node.props) });
-    }
-  };
-
-  onNodeDragLeave = (event: React.MouseEvent<HTMLDivElement>, node: NodeInstance) => {
-    const { onDragLeave } = this.props;
-
-    this.setState({
-      dragOverNodeKey: '',
-    });
-
-    if (onDragLeave) {
-      onDragLeave({ event, node: convertNodePropsToEventData(node.props) });
-    }
-  };
-
-  onNodeDragEnd = (event: React.MouseEvent<HTMLDivElement>, node: NodeInstance) => {
-    const { onDragEnd } = this.props;
-    this.setState({
-      dragOverNodeKey: '',
-    });
-    this.cleanDragState();
-
-    if (onDragEnd) {
-      onDragEnd({ event, node: convertNodePropsToEventData(node.props) });
-    }
-
-    this.dragNode = null;
-  };
-
-  onNodeDrop = (event: React.MouseEvent<HTMLDivElement>, node: NodeInstance) => {
-    const { dragNodesKeys = [], dropPosition } = this.state;
-    const { onDrop } = this.props;
-    const { eventKey, pos } = node.props;
-
-    this.setState({
-      dragOverNodeKey: '',
-    });
-    this.cleanDragState();
-
-    if (dragNodesKeys.indexOf(eventKey) !== -1) {
-      warning(false, "Can not drop to dragNode(include it's children node)");
-      return;
-    }
-
-    const posArr = posToArr(pos);
-
-    const dropResult = {
-      event,
-      node: convertNodePropsToEventData(node.props),
-      dragNode: convertNodePropsToEventData(this.dragNode.props),
-      dragNodesKeys: dragNodesKeys.slice(),
-      dropPosition: dropPosition + Number(posArr[posArr.length - 1]),
-      dropToGap: false,
-    };
-
-    if (dropPosition !== 0) {
-      dropResult.dropToGap = true;
-    }
-
-    if (onDrop) {
-      onDrop(dropResult);
-    }
-
-    this.dragNode = null;
-  };
-
-  cleanDragState = () => {
-    const { dragging } = this.state;
-    if (dragging) {
-      this.setState({
-        dragging: false,
-      });
-    }
-  };
 
   onNodeClick = (e: React.MouseEvent<HTMLDivElement>, treeNode: EventDataNode) => {
     const { onClick } = this.props;
@@ -743,13 +517,13 @@ class Tree extends React.Component<TreeProps, TreeState> {
     });
 
   onNodeExpand = (e: React.MouseEvent<HTMLDivElement>, treeNode: EventDataNode) => {
-    let { expandedKeys } = this.state;
+    let { treeExpandedKeys } = this.state;
     const { treeData } = this.state;
-    const { onExpand, loadData } = this.props;
+    const { onTreeExpand, loadData } = this.props;
     const { key, expanded } = treeNode;
 
     // Update selected keys
-    const index = expandedKeys.indexOf(key);
+    const index = treeExpandedKeys.indexOf(key);
     const targetExpanded = !expanded;
 
     warning(
@@ -758,16 +532,16 @@ class Tree extends React.Component<TreeProps, TreeState> {
     );
 
     if (targetExpanded) {
-      expandedKeys = arrAdd(expandedKeys, key);
+      treeExpandedKeys = arrAdd(treeExpandedKeys, key);
     } else {
-      expandedKeys = arrDel(expandedKeys, key);
+      treeExpandedKeys = arrDel(treeExpandedKeys, key);
     }
 
-    const flattenNodes: FlattenNode[] = flattenTreeData(treeData, expandedKeys);
-    this.setUncontrolledState({ expandedKeys, flattenNodes }, true);
+    const flattenNodes: FlattenNode[] = flattenTreeData(treeData, treeExpandedKeys);
+    this.setUncontrolledState({ treeExpandedKeys, flattenNodes }, true);
 
-    if (onExpand) {
-      onExpand(expandedKeys, {
+    if (onTreeExpand) {
+      onTreeExpand(treeExpandedKeys, {
         node: treeNode,
         expanded: targetExpanded,
         nativeEvent: e.nativeEvent,
@@ -780,7 +554,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
       return loadPromise
         ? loadPromise.then(() => {
             // [Legacy] Refresh logic
-            const newFlattenTreeData = flattenTreeData(this.state.treeData, expandedKeys);
+            const newFlattenTreeData = flattenTreeData(this.state.treeData, treeExpandedKeys);
             this.setUncontrolledState({ flattenNodes: newFlattenTreeData });
           })
         : null;
@@ -832,25 +606,21 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
   getTreeNodeRequiredProps = () => {
     const {
-      expandedKeys,
+      treeExpandedKeys,
       selectedKeys,
       loadedKeys,
       loadingKeys,
       checkedKeys,
       halfCheckedKeys,
-      dragOverNodeKey,
-      dropPosition,
       keyEntities,
     } = this.state;
     return {
-      expandedKeys: expandedKeys || [],
+      treeExpandedKeys: treeExpandedKeys || [],
       selectedKeys: selectedKeys || [],
       loadedKeys: loadedKeys || [],
       loadingKeys: loadingKeys || [],
       checkedKeys: checkedKeys || [],
       halfCheckedKeys: halfCheckedKeys || [],
-      dragOverNodeKey,
-      dropPosition,
       keyEntities,
     };
   };
@@ -899,96 +669,10 @@ class Tree extends React.Component<TreeProps, TreeState> {
     }
   };
 
-  onKeyDown: React.KeyboardEventHandler<HTMLDivElement> = event => {
-    const { activeKey, expandedKeys, checkedKeys } = this.state;
-    const { onKeyDown, checkable, selectable } = this.props;
-
-    // >>>>>>>>>> Direction
-    switch (event.which) {
-      case KeyCode.UP: {
-        this.offsetActiveKey(-1);
-        event.preventDefault();
-        break;
-      }
-      case KeyCode.DOWN: {
-        this.offsetActiveKey(1);
-        event.preventDefault();
-        break;
-      }
-    }
-
-    // >>>>>>>>>> Expand & Selection
-    const activeItem = this.getActiveItem();
-    if (activeItem && activeItem.data) {
-      const treeNodeRequiredProps = this.getTreeNodeRequiredProps();
-
-      const expandable =
-        activeItem.data.leaf === false || !!(activeItem.data.children || []).length;
-      const eventNode = convertNodePropsToEventData({
-        ...getTreeNodeProps(activeKey, treeNodeRequiredProps),
-        data: activeItem.data,
-        active: true,
-      });
-
-      switch (event.which) {
-        // >>> Expand
-        case KeyCode.LEFT: {
-          // Collapse if possible
-          if (expandable && expandedKeys.includes(activeKey)) {
-            this.onNodeExpand({} as React.MouseEvent<HTMLDivElement>, eventNode);
-          } else if (activeItem.parent) {
-            this.onActiveChange(activeItem.parent.data.key);
-          }
-          event.preventDefault();
-          break;
-        }
-        case KeyCode.RIGHT: {
-          // Expand if possible
-          if (expandable && !expandedKeys.includes(activeKey)) {
-            this.onNodeExpand({} as React.MouseEvent<HTMLDivElement>, eventNode);
-          } else if (activeItem.children && activeItem.children.length) {
-            this.onActiveChange(activeItem.children[0].data.key);
-          }
-          event.preventDefault();
-          break;
-        }
-
-        // Selection
-        case KeyCode.ENTER:
-        case KeyCode.SPACE: {
-          if (
-            checkable &&
-            !eventNode.disabled &&
-            eventNode.checkable !== false &&
-            !eventNode.disableCheckbox
-          ) {
-            this.onNodeCheck(
-              {} as React.MouseEvent<HTMLDivElement>,
-              eventNode,
-              !checkedKeys.includes(activeKey),
-            );
-          } else if (
-            !checkable &&
-            selectable &&
-            !eventNode.disabled &&
-            eventNode.selectable !== false
-          ) {
-            this.onNodeSelect({} as React.MouseEvent<HTMLDivElement>, eventNode);
-          }
-          break;
-        }
-      }
-    }
-
-    if (onKeyDown) {
-      onKeyDown(event);
-    }
-  };
-
   /**
    * Only update the value which is not in props
    */
-  setUncontrolledState = (state: Partial<TreeState>, atomic: boolean = false) => {
+  setUncontrolledState = (state: Partial<TreeState>, atomic = false) => {
     let needSync = false;
     let allPassed = true;
     const newState = {};
@@ -1013,7 +697,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
   };
 
   render() {
-    const { focused, flattenNodes, keyEntities, dragging, activeKey } = this.state;
+    const { focused, flattenNodes, keyEntities, activeKey } = this.state;
     const {
       prefixCls,
       className,
@@ -1025,7 +709,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
       showIcon,
       icon,
       switcherIcon,
-      draggable,
       checkable,
       checkStrictly,
       disabled,
@@ -1037,7 +720,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
       virtual,
     } = this.props;
     const domProps: React.HTMLAttributes<HTMLDivElement> = getDataAndAria(this.props);
-
     return (
       <TreeContext.Provider
         value={{
@@ -1046,7 +728,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
           showIcon,
           icon,
           switcherIcon,
-          draggable,
           checkable,
           checkStrictly,
           disabled,
@@ -1064,12 +745,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
           onNodeMouseEnter: this.onNodeMouseEnter,
           onNodeMouseLeave: this.onNodeMouseLeave,
           onNodeContextMenu: this.onNodeContextMenu,
-          onNodeDragStart: this.onNodeDragStart,
-          onNodeDragEnter: this.onNodeDragEnter,
-          onNodeDragOver: this.onNodeDragOver,
-          onNodeDragLeave: this.onNodeDragLeave,
-          onNodeDragEnd: this.onNodeDragEnd,
-          onNodeDrop: this.onNodeDrop,
         }}
       >
         <div
@@ -1088,7 +763,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
             selectable={selectable}
             checkable={!!checkable}
             motion={motion}
-            dragging={dragging}
             height={height}
             itemHeight={itemHeight}
             virtual={virtual}
@@ -1108,7 +782,5 @@ class Tree extends React.Component<TreeProps, TreeState> {
     );
   }
 }
-
-polyfill(Tree);
 
 export default Tree;

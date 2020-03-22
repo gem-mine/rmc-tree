@@ -5,7 +5,7 @@
 import * as React from 'react';
 import VirtualList from 'rc-virtual-list';
 import { FlattenNode, Key, DataEntity, DataNode, ScrollTo } from './interface';
-import MotionTreeNode from './MotionTreeNode';
+import TreeNode from './TreeNode';
 import { findExpandedKeys, getExpandRange } from './utils/diffUtil';
 import { getTreeNodeProps, getKey } from './utils/treeUtil';
 
@@ -63,7 +63,7 @@ interface NodeListProps {
   selectable?: boolean;
   disabled?: boolean;
 
-  expandedKeys: Key[];
+  treeExpandedKeys: Key[];
   selectedKeys: Key[];
   checkedKeys: Key[];
   loadedKeys: Key[];
@@ -71,8 +71,6 @@ interface NodeListProps {
   halfCheckedKeys: Key[];
   keyEntities: Record<Key, DataEntity>;
 
-  dragging: boolean;
-  dragOverNodeKey: Key;
   dropPosition: number;
 
   // Virtual list
@@ -127,7 +125,7 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
     data,
     selectable,
     checkable,
-    expandedKeys,
+    treeExpandedKeys,
     selectedKeys,
     checkedKeys,
     loadedKeys,
@@ -135,9 +133,6 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
     halfCheckedKeys,
     keyEntities,
     disabled,
-
-    dragging,
-    dragOverNodeKey,
     dropPosition,
     motion,
 
@@ -168,11 +163,11 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
 
   // ============================== Motion ==============================
   const [disableVirtual, setDisableVirtual] = React.useState(false);
-  const [prevExpandedKeys, setPrevExpandedKeys] = React.useState(expandedKeys);
+  const [prevExpandedKeys, setPrevExpandedKeys] = React.useState(treeExpandedKeys);
   const [prevData, setPrevData] = React.useState(data);
   const [transitionData, setTransitionData] = React.useState(data);
-  const [transitionRange, setTransitionRange] = React.useState([]);
-  const [motionType, setMotionType] = React.useState<'show' | 'hide' | null>(null);
+  const [setTransitionRange] = React.useState([]);
+  const [setMotionType] = React.useState<'show' | 'hide' | null>(null);
 
   function onMotionEnd() {
     setPrevData(data);
@@ -184,9 +179,9 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
 
   // Do animation if expanded keys changed
   React.useEffect(() => {
-    setPrevExpandedKeys(expandedKeys);
+    setPrevExpandedKeys(treeExpandedKeys);
 
-    const diffExpanded = findExpandedKeys(prevExpandedKeys, expandedKeys);
+    const diffExpanded = findExpandedKeys(prevExpandedKeys, treeExpandedKeys);
 
     if (diffExpanded.key !== null) {
       if (diffExpanded.add) {
@@ -227,33 +222,24 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
       setPrevData(data);
       setTransitionData(data);
     }
-  }, [expandedKeys, data]);
-
-  // We should clean up motion if is changed by dragging
-  React.useEffect(() => {
-    if (!dragging) {
-      onMotionEnd();
-    }
-  }, [dragging]);
+  }, [treeExpandedKeys, data]);
 
   const mergedData = motion ? transitionData : data;
 
   const treeNodeRequiredProps = {
-    expandedKeys,
+    treeExpandedKeys,
     selectedKeys,
     loadedKeys,
     loadingKeys,
     checkedKeys,
     halfCheckedKeys,
-    dragOverNodeKey,
     dropPosition,
     keyEntities,
   };
-
   return (
-    <>
+    <React.Fragment>
       {focused && activeItem && (
-        <span style={HIDDEN_STYLE} aria-live="assertive">
+        <span id="test" style={HIDDEN_STYLE} aria-live="assertive">
           {getAccessibilityPath(activeItem)}
         </span>
       )}
@@ -297,7 +283,7 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
           const treeNodeProps = getTreeNodeProps(mergedKey, treeNodeRequiredProps);
 
           return (
-            <MotionTreeNode
+            <TreeNode
               {...restProps}
               {...treeNodeProps}
               active={activeItem && key === activeItem.data.key}
@@ -305,19 +291,12 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
               data={treeNode.data}
               isStart={isStart}
               isEnd={isEnd}
-              motion={motion}
-              motionNodes={key === MOTION_KEY ? transitionRange : null}
-              motionType={motionType}
-              onMotionEnd={onMotionEnd}
               treeNodeRequiredProps={treeNodeRequiredProps}
-              onMouseMove={() => {
-                onActiveChange(null);
-              }}
             />
           );
         }}
       </VirtualList>
-    </>
+    </React.Fragment>
   );
 };
 

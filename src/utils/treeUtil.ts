@@ -18,7 +18,7 @@ export function getKey(key: Key, pos: string) {
 export function warningWithoutKey(treeData: DataNode[] = []) {
   const keys: Map<string, boolean> = new Map();
 
-  function dig(list: DataNode[], path: string = '') {
+  function dig(list: DataNode[], path = '') {
     (list || []).forEach(treeNode => {
       const { key, children } = treeNode;
       warning(
@@ -78,14 +78,14 @@ export function convertTreeToData(rootNodes: React.ReactNode): DataNode[] {
 /**
  * Flat nest tree data into flatten list. This is used for virtual list render.
  * @param treeNodeList Origin data node list
- * @param expandedKeys
+ * @param treeExpandedKeys
  * need expanded keys, provides `true` means all expanded (used in `rc-tree-select`).
  */
 export function flattenTreeData(
   treeNodeList: DataNode[] = [],
-  expandedKeys: Key[] | true = [],
+  treeExpandedKeys: Key[] | true = [],
 ): FlattenNode[] {
-  const expandedKeySet = new Set(expandedKeys === true ? [] : expandedKeys);
+  const expandedKeySet = new Set(treeExpandedKeys === true ? [] : treeExpandedKeys);
   const flattenList: FlattenNode[] = [];
 
   function dig(list: DataNode[], parent: FlattenNode = null): FlattenNode[] {
@@ -107,7 +107,7 @@ export function flattenTreeData(
       flattenList.push(flattenNode);
 
       // Loop treeNode children
-      if (expandedKeys === true || expandedKeySet.has(mergedKey)) {
+      if (treeExpandedKeys === true || expandedKeySet.has(mergedKey)) {
         flattenNode.children = dig(treeNode.children || [], flattenNode);
       } else {
         flattenNode.children = [];
@@ -234,13 +234,12 @@ export function convertDataToEntities(
 }
 
 export interface TreeNodeRequiredProps {
-  expandedKeys: Key[];
+  treeExpandedKeys: Key[];
   selectedKeys: Key[];
   loadedKeys: Key[];
   loadingKeys: Key[];
   checkedKeys: Key[];
   halfCheckedKeys: Key[];
-  dragOverNodeKey: Key;
   dropPosition: number;
   keyEntities: Record<Key, DataEntity>;
 }
@@ -251,14 +250,12 @@ export interface TreeNodeRequiredProps {
 export function getTreeNodeProps(
   key: Key,
   {
-    expandedKeys,
+    treeExpandedKeys,
     selectedKeys,
     loadedKeys,
     loadingKeys,
     checkedKeys,
     halfCheckedKeys,
-    dragOverNodeKey,
-    dropPosition,
     keyEntities,
   }: TreeNodeRequiredProps,
 ) {
@@ -266,18 +263,13 @@ export function getTreeNodeProps(
 
   const treeNodeProps = {
     eventKey: key,
-    expanded: expandedKeys.indexOf(key) !== -1,
+    expanded: treeExpandedKeys.indexOf(key) !== -1,
     selected: selectedKeys.indexOf(key) !== -1,
     loaded: loadedKeys.indexOf(key) !== -1,
     loading: loadingKeys.indexOf(key) !== -1,
     checked: checkedKeys.indexOf(key) !== -1,
     halfChecked: halfCheckedKeys.indexOf(key) !== -1,
     pos: String(entity ? entity.pos : ''),
-
-    // [Legacy] Drag props
-    dragOver: dragOverNodeKey === key && dropPosition === 0,
-    dragOverGapTop: dragOverNodeKey === key && dropPosition === -1,
-    dragOverGapBottom: dragOverNodeKey === key && dropPosition === 1,
   };
 
   return treeNodeProps;
