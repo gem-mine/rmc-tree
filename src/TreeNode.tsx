@@ -33,7 +33,6 @@ export interface TreeNodeProps {
   isStart?: boolean[];
   isEnd?: boolean[];
   active?: boolean;
-  onMouseMove?: React.MouseEventHandler<HTMLDivElement>;
 
   // By user
   leaf?: boolean;
@@ -133,20 +132,6 @@ class InternalTreeNode extends React.Component<InternalTreeNodeProps> {
     e.preventDefault();
     const targetChecked = !checked;
     onNodeCheck(e, convertNodePropsToEventData(this.props), targetChecked);
-  };
-
-  onMouseEnter = e => {
-    const {
-      context: { onNodeMouseEnter },
-    } = this.props;
-    onNodeMouseEnter(e, convertNodePropsToEventData(this.props));
-  };
-
-  onMouseLeave = e => {
-    const {
-      context: { onNodeMouseLeave },
-    } = this.props;
-    onNodeMouseLeave(e, convertNodePropsToEventData(this.props));
   };
 
   onContextMenu = e => {
@@ -397,7 +382,6 @@ class InternalTreeNode extends React.Component<InternalTreeNodeProps> {
       loading,
       domRef,
       active,
-      onMouseMove,
       ...otherProps
     } = this.props;
     const {

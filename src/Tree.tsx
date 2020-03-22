@@ -70,7 +70,6 @@ export interface TreeProps {
   defaultSelectedKeys?: Key[];
   selectedKeys?: Key[];
   onFocus?: React.FocusEventHandler<HTMLDivElement>;
-  onBlur?: React.FocusEventHandler<HTMLDivElement>;
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onClick?: (e: React.MouseEvent, treeNode: EventDataNode) => void;
   onDoubleClick?: (e: React.MouseEvent, treeNode: EventDataNode) => void;
@@ -102,8 +101,6 @@ export interface TreeProps {
   ) => void;
   loadData?: (treeNode: EventDataNode) => Promise<void>;
   loadedKeys?: Key[];
-  onMouseEnter?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
-  onMouseLeave?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
   onRightClick?: (info: { event: React.MouseEvent; node: EventDataNode }) => void;
 
   /**
@@ -175,8 +172,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
     onLoad: PropTypes.func,
     loadData: PropTypes.func,
     loadedKeys: PropTypes.arrayOf(keyPropType),
-    onMouseEnter: PropTypes.func,
-    onMouseLeave: PropTypes.func,
     onRightClick: PropTypes.func,
     filterTreeNode: PropTypes.func,
     motion: PropTypes.object,
@@ -563,20 +558,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
     return null;
   };
 
-  onNodeMouseEnter = (event: React.MouseEvent<HTMLDivElement>, node: EventDataNode) => {
-    const { onMouseEnter } = this.props;
-    if (onMouseEnter) {
-      onMouseEnter({ event, node });
-    }
-  };
-
-  onNodeMouseLeave = (event: React.MouseEvent<HTMLDivElement>, node: EventDataNode) => {
-    const { onMouseLeave } = this.props;
-    if (onMouseLeave) {
-      onMouseLeave({ event, node });
-    }
-  };
-
   onNodeContextMenu = (event: React.MouseEvent<HTMLDivElement>, node: EventDataNode) => {
     const { onRightClick } = this.props;
     if (onRightClick) {
@@ -591,16 +572,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
     if (onFocus) {
       onFocus(...args);
-    }
-  };
-
-  onBlur: React.FocusEventHandler<HTMLDivElement> = (...args) => {
-    const { onBlur } = this.props;
-    this.setState({ focused: false });
-    this.onActiveChange(null);
-
-    if (onBlur) {
-      onBlur(...args);
     }
   };
 
@@ -742,8 +713,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
           onNodeSelect: this.onNodeSelect,
           onNodeCheck: this.onNodeCheck,
           onNodeLoad: this.onNodeLoad,
-          onNodeMouseEnter: this.onNodeMouseEnter,
-          onNodeMouseLeave: this.onNodeMouseLeave,
           onNodeContextMenu: this.onNodeContextMenu,
         }}
       >
@@ -771,7 +740,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
             tabIndex={tabIndex}
             activeItem={this.getActiveItem()}
             onFocus={this.onFocus}
-            onBlur={this.onBlur}
             onKeyDown={this.onKeyDown}
             onActiveChange={this.onActiveChange}
             {...this.getTreeNodeRequiredProps()}

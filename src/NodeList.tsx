@@ -6,7 +6,7 @@ import * as React from 'react';
 import VirtualList from 'rc-virtual-list';
 import { FlattenNode, Key, DataEntity, DataNode, ScrollTo } from './interface';
 import TreeNode from './TreeNode';
-import { findExpandedKeys, getExpandRange } from './utils/diffUtil';
+import { findExpandedKeys } from './utils/diffUtil';
 import { getTreeNodeProps, getKey } from './utils/treeUtil';
 
 const HIDDEN_STYLE = {
@@ -80,7 +80,6 @@ interface NodeListProps {
 
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onFocus?: React.FocusEventHandler<HTMLDivElement>;
-  onBlur?: React.FocusEventHandler<HTMLDivElement>;
   onActiveChange: (key: Key) => void;
 }
 
@@ -147,7 +146,6 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
 
     onKeyDown,
     onFocus,
-    onBlur,
     onActiveChange,
 
     ...domProps
@@ -166,16 +164,6 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
   const [prevExpandedKeys, setPrevExpandedKeys] = React.useState(treeExpandedKeys);
   const [prevData, setPrevData] = React.useState(data);
   const [transitionData, setTransitionData] = React.useState(data);
-  const [setTransitionRange] = React.useState([]);
-  const [setMotionType] = React.useState<'show' | 'hide' | null>(null);
-
-  function onMotionEnd() {
-    setPrevData(data);
-    setTransitionData(data);
-    setTransitionRange([]);
-    setMotionType(null);
-    setDisableVirtual(false);
-  }
 
   // Do animation if expanded keys changed
   React.useEffect(() => {
@@ -188,34 +176,24 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
         const keyIndex = prevData.findIndex(({ data: { key } }) => key === diffExpanded.key);
 
         if (motion) setDisableVirtual(true);
-        const rangeNodes = getMinimumRangeTransitionRange(
-          getExpandRange(prevData, data, diffExpanded.key),
-          height,
-          itemHeight,
-        );
 
         const newTransitionData: FlattenNode[] = prevData.slice();
         newTransitionData.splice(keyIndex + 1, 0, MotionFlattenData);
 
         setTransitionData(newTransitionData);
-        setTransitionRange(rangeNodes);
-        setMotionType('show');
+        // setTransitionRange(rangeNodes);
+        // setMotionType('show');
       } else {
         const keyIndex = data.findIndex(({ data: { key } }) => key === diffExpanded.key);
 
         if (motion) setDisableVirtual(true);
-        const rangeNodes = getMinimumRangeTransitionRange(
-          getExpandRange(data, prevData, diffExpanded.key),
-          height,
-          itemHeight,
-        );
 
         const newTransitionData: FlattenNode[] = data.slice();
         newTransitionData.splice(keyIndex + 1, 0, MotionFlattenData);
 
         setTransitionData(newTransitionData);
-        setTransitionRange(rangeNodes);
-        setMotionType('hide');
+        // setTransitionRange(rangeNodes);
+        // setMotionType('hide');
       }
     } else if (prevData !== data) {
       // If whole data changed, we just refresh the list
@@ -251,7 +229,6 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
           tabIndex={focusable !== false ? tabIndex : null}
           onKeyDown={onKeyDown}
           onFocus={onFocus}
-          onBlur={onBlur}
           value=""
           onChange={noop}
         />
@@ -266,7 +243,6 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
         fullHeight={false}
         virtual={virtual}
         itemHeight={itemHeight}
-        onSkipRender={onMotionEnd}
         prefixCls={`${prefixCls}-list`}
         ref={listRef}
       >
