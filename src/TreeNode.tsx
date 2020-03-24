@@ -1,6 +1,7 @@
 import * as React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
+import { polyfill } from 'react-lifecycles-compat';
 import { TreeContext, TreeContextProps } from './contextTypes';
 import { getDataAndAria } from './util';
 import { IconType, Key, DataNode } from './interface';
@@ -13,6 +14,7 @@ const ICON_CLOSE = 'close';
 const defaultTitle = '---';
 
 export interface TreeNodeProps {
+  displayName?: string;
   eventKey?: Key; // Pass by parent `cloneElement`
   prefixCls?: string;
   className?: string;
@@ -43,6 +45,7 @@ export interface TreeNodeProps {
   icon?: IconType;
   switcherIcon?: IconType;
   children?: React.ReactNode;
+  treeNodeRequiredProps?: any;
 }
 
 export interface InternalTreeNodeProps extends TreeNodeProps {
@@ -414,9 +417,15 @@ class InternalTreeNode extends React.Component<InternalTreeNodeProps> {
     );
   }
 }
-
+polyfill(InternalTreeNode);
 /* eslint-disable react/prefer-stateless-function */
 class ContextTreeNode extends React.Component<TreeNodeProps, any> {
+  static displayName = 'TreeNode';
+
+  static defaultProps = {
+    title: defaultTitle,
+  };
+
   render() {
     return (
       <TreeContext.Consumer>
@@ -425,12 +434,6 @@ class ContextTreeNode extends React.Component<TreeNodeProps, any> {
     );
   }
 }
-
-ContextTreeNode.displayName = 'TreeNode';
-
-ContextTreeNode.defaultProps = {
-  title: defaultTitle,
-};
 
 (ContextTreeNode as any).isTreeNode = 1;
 

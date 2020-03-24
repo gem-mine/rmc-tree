@@ -78,14 +78,14 @@ export function convertTreeToData(rootNodes: React.ReactNode): DataNode[] {
 /**
  * Flat nest tree data into flatten list. This is used for virtual list render.
  * @param treeNodeList Origin data node list
- * @param treeExpandedKeys
+ * @param expandedKeys
  * need expanded keys, provides `true` means all expanded (used in `rc-tree-select`).
  */
 export function flattenTreeData(
   treeNodeList: DataNode[] = [],
-  treeExpandedKeys: Key[] | true = [],
+  expandedKeys: Key[] | true = [],
 ): FlattenNode[] {
-  const expandedKeySet = new Set(treeExpandedKeys === true ? [] : treeExpandedKeys);
+  const expandedKeySet = new Set(expandedKeys === true ? [] : expandedKeys);
   const flattenList: FlattenNode[] = [];
 
   function dig(list: DataNode[], parent: FlattenNode = null): FlattenNode[] {
@@ -107,7 +107,7 @@ export function flattenTreeData(
       flattenList.push(flattenNode);
 
       // Loop treeNode children
-      if (treeExpandedKeys === true || expandedKeySet.has(mergedKey)) {
+      if (expandedKeys === true || expandedKeySet.has(mergedKey)) {
         flattenNode.children = dig(treeNode.children || [], flattenNode);
       } else {
         flattenNode.children = [];
@@ -234,13 +234,12 @@ export function convertDataToEntities(
 }
 
 export interface TreeNodeRequiredProps {
-  treeExpandedKeys: Key[];
+  expandedKeys: Key[];
   selectedKeys: Key[];
   loadedKeys: Key[];
   loadingKeys: Key[];
   checkedKeys: Key[];
   halfCheckedKeys: Key[];
-  dropPosition: number;
   keyEntities: Record<Key, DataEntity>;
 }
 
@@ -250,7 +249,7 @@ export interface TreeNodeRequiredProps {
 export function getTreeNodeProps(
   key: Key,
   {
-    treeExpandedKeys,
+    expandedKeys,
     selectedKeys,
     loadedKeys,
     loadingKeys,
@@ -263,7 +262,7 @@ export function getTreeNodeProps(
 
   const treeNodeProps = {
     eventKey: key,
-    expanded: treeExpandedKeys.indexOf(key) !== -1,
+    expanded: expandedKeys.indexOf(key) !== -1,
     selected: selectedKeys.indexOf(key) !== -1,
     loaded: loadedKeys.indexOf(key) !== -1,
     loading: loadingKeys.indexOf(key) !== -1,
@@ -276,20 +275,7 @@ export function getTreeNodeProps(
 }
 
 export function convertNodePropsToEventData(props: TreeNodeProps): EventDataNode {
-  const {
-    data,
-    expanded,
-    selected,
-    checked,
-    loaded,
-    loading,
-    halfChecked,
-    dragOver,
-    dragOverGapTop,
-    dragOverGapBottom,
-    pos,
-    active,
-  } = props;
+  const { data, expanded, selected, checked, loaded, loading, halfChecked, pos, active } = props;
 
   const eventData = {
     ...data,
@@ -299,9 +285,6 @@ export function convertNodePropsToEventData(props: TreeNodeProps): EventDataNode
     loaded,
     loading,
     halfChecked,
-    dragOver,
-    dragOverGapTop,
-    dragOverGapBottom,
     pos,
     active,
   };

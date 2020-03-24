@@ -63,15 +63,13 @@ interface NodeListProps {
   selectable?: boolean;
   disabled?: boolean;
 
-  treeExpandedKeys: Key[];
+  expandedKeys: Key[];
   selectedKeys: Key[];
   checkedKeys: Key[];
   loadedKeys: Key[];
   loadingKeys: Key[];
   halfCheckedKeys: Key[];
   keyEntities: Record<Key, DataEntity>;
-
-  dropPosition: number;
 
   // Virtual list
   height: number;
@@ -124,7 +122,7 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
     data,
     selectable,
     checkable,
-    treeExpandedKeys,
+    expandedKeys,
     selectedKeys,
     checkedKeys,
     loadedKeys,
@@ -132,7 +130,6 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
     halfCheckedKeys,
     keyEntities,
     disabled,
-    dropPosition,
     motion,
 
     height,
@@ -161,15 +158,15 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
 
   // ============================== Motion ==============================
   const [disableVirtual, setDisableVirtual] = React.useState(false);
-  const [prevExpandedKeys, setPrevExpandedKeys] = React.useState(treeExpandedKeys);
+  const [prevExpandedKeys, setPrevExpandedKeys] = React.useState(expandedKeys);
   const [prevData, setPrevData] = React.useState(data);
   const [transitionData, setTransitionData] = React.useState(data);
 
   // Do animation if expanded keys changed
   React.useEffect(() => {
-    setPrevExpandedKeys(treeExpandedKeys);
+    setPrevExpandedKeys(expandedKeys);
 
-    const diffExpanded = findExpandedKeys(prevExpandedKeys, treeExpandedKeys);
+    const diffExpanded = findExpandedKeys(prevExpandedKeys, expandedKeys);
 
     if (diffExpanded.key !== null) {
       if (diffExpanded.add) {
@@ -200,18 +197,17 @@ const RefNodeList: React.RefForwardingComponent<NodeListRef, NodeListProps> = (p
       setPrevData(data);
       setTransitionData(data);
     }
-  }, [treeExpandedKeys, data]);
+  }, [expandedKeys, data]);
 
   const mergedData = motion ? transitionData : data;
 
   const treeNodeRequiredProps = {
-    treeExpandedKeys,
+    expandedKeys,
     selectedKeys,
     loadedKeys,
     loadingKeys,
     checkedKeys,
     halfCheckedKeys,
-    dropPosition,
     keyEntities,
   };
   return (

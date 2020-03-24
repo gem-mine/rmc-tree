@@ -5,6 +5,7 @@ import * as React from 'react';
 import PropTypes from 'prop-types';
 import warning from 'rc-util/lib/warning';
 import classNames from 'classnames';
+import { polyfill } from 'react-lifecycles-compat';
 
 import { TreeContext } from './contextTypes';
 import {
@@ -63,8 +64,8 @@ export interface TreeProps {
   defaultExpandParent?: boolean;
   autoExpandParent?: boolean;
   defaultExpandAll?: boolean;
-  treeDefaultExpandedKeys?: Key[];
-  treeExpandedKeys?: Key[];
+  defaultExpandedKeys?: Key[];
+  expandedKeys?: Key[];
   defaultCheckedKeys?: Key[];
   checkedKeys?: Key[] | { checked: Key[]; halfChecked: Key[] };
   defaultSelectedKeys?: Key[];
@@ -73,8 +74,8 @@ export interface TreeProps {
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onClick?: (e: React.MouseEvent, treeNode: EventDataNode) => void;
   onDoubleClick?: (e: React.MouseEvent, treeNode: EventDataNode) => void;
-  onTreeExpand?: (
-    treeExpandedKeys: Key[],
+  onExpand?: (
+    expandedKeys: Key[],
     info: {
       node: EventDataNode;
       expanded: boolean;
@@ -126,7 +127,7 @@ interface TreeState {
   halfCheckedKeys: Key[];
   loadedKeys: Key[];
   loadingKeys: Key[];
-  treeExpandedKeys: Key[];
+  expandedKeys: Key[];
 
   treeData: DataNode[];
   flattenNodes: FlattenNode[];
@@ -158,15 +159,15 @@ class Tree extends React.Component<TreeProps, TreeState> {
     defaultExpandParent: PropTypes.bool,
     autoExpandParent: PropTypes.bool,
     defaultExpandAll: PropTypes.bool,
-    treeDefaultExpandedKeys: PropTypes.arrayOf(keyPropType),
-    treeExpandedKeys: PropTypes.arrayOf(keyPropType),
+    defaultExpandedKeys: PropTypes.arrayOf(keyPropType),
+    expandedKeys: PropTypes.arrayOf(keyPropType),
     defaultCheckedKeys: PropTypes.arrayOf(keyPropType),
     checkedKeys: PropTypes.oneOfType([PropTypes.arrayOf(keyPropType), PropTypes.object]),
     defaultSelectedKeys: PropTypes.arrayOf(keyPropType),
     selectedKeys: PropTypes.arrayOf(keyPropType),
     onClick: PropTypes.func,
     onDoubleClick: PropTypes.func,
-    onTreeExpand: PropTypes.func,
+    onExpand: PropTypes.func,
     onCheck: PropTypes.func,
     onSelect: PropTypes.func,
     onLoad: PropTypes.func,
@@ -190,7 +191,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
     defaultExpandParent: true,
     autoExpandParent: false,
     defaultExpandAll: false,
-    treeDefaultExpandedKeys: [],
+    defaultExpandedKeys: [],
     defaultCheckedKeys: [],
     defaultSelectedKeys: [],
   };
@@ -205,7 +206,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
     halfCheckedKeys: [],
     loadedKeys: [],
     loadingKeys: [],
-    treeExpandedKeys: [],
+    expandedKeys: [],
 
     treeData: [],
     flattenNodes: [],
@@ -256,34 +257,32 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
     const keyEntities = newState.keyEntities || prevState.keyEntities;
 
-    // ================ treeExpandedKeys =================
-    if (needSync('treeExpandedKeys') || (prevProps && needSync('autoExpandParent'))) {
-      newState.treeExpandedKeys =
+    // ================ expandedKeys =================
+    if (needSync('expandedKeys') || (prevProps && needSync('autoExpandParent'))) {
+      newState.expandedKeys =
         props.autoExpandParent || (!prevProps && props.defaultExpandParent)
-          ? conductExpandParent(props.treeExpandedKeys, keyEntities)
-          : props.treeExpandedKeys;
+          ? conductExpandParent(props.expandedKeys, keyEntities)
+          : props.expandedKeys;
     } else if (!prevProps && props.defaultExpandAll) {
       const cloneKeyEntities = { ...keyEntities };
       delete cloneKeyEntities[MOTION_KEY];
-      newState.treeExpandedKeys = Object.keys(cloneKeyEntities).map(
-        key => cloneKeyEntities[key].key,
-      );
-    } else if (!prevProps && props.treeDefaultExpandedKeys) {
-      newState.treeExpandedKeys =
+      newState.expandedKeys = Object.keys(cloneKeyEntities).map(key => cloneKeyEntities[key].key);
+    } else if (!prevProps && props.defaultExpandedKeys) {
+      newState.expandedKeys =
         props.autoExpandParent || props.defaultExpandParent
-          ? conductExpandParent(props.treeDefaultExpandedKeys, keyEntities)
-          : props.treeDefaultExpandedKeys;
+          ? conductExpandParent(props.defaultExpandedKeys, keyEntities)
+          : props.defaultExpandedKeys;
     }
 
-    if (!newState.treeExpandedKeys) {
-      delete newState.treeExpandedKeys;
+    if (!newState.expandedKeys) {
+      delete newState.expandedKeys;
     }
 
     // ================ flattenNodes =================
-    if (treeData || newState.treeExpandedKeys) {
+    if (treeData || newState.expandedKeys) {
       const flattenNodes: FlattenNode[] = flattenTreeData(
         treeData || prevState.treeData,
-        newState.treeExpandedKeys || prevState.treeExpandedKeys,
+        newState.expandedKeys || prevState.expandedKeys,
       );
       newState.flattenNodes = flattenNodes;
     }
@@ -512,13 +511,13 @@ class Tree extends React.Component<TreeProps, TreeState> {
     });
 
   onNodeExpand = (e: React.MouseEvent<HTMLDivElement>, treeNode: EventDataNode) => {
-    let { treeExpandedKeys } = this.state;
+    let { expandedKeys } = this.state;
     const { treeData } = this.state;
-    const { onTreeExpand, loadData } = this.props;
+    const { onExpand, loadData } = this.props;
     const { key, expanded } = treeNode;
 
     // Update selected keys
-    const index = treeExpandedKeys.indexOf(key);
+    const index = expandedKeys.indexOf(key);
     const targetExpanded = !expanded;
 
     warning(
@@ -527,16 +526,16 @@ class Tree extends React.Component<TreeProps, TreeState> {
     );
 
     if (targetExpanded) {
-      treeExpandedKeys = arrAdd(treeExpandedKeys, key);
+      expandedKeys = arrAdd(expandedKeys, key);
     } else {
-      treeExpandedKeys = arrDel(treeExpandedKeys, key);
+      expandedKeys = arrDel(expandedKeys, key);
     }
 
-    const flattenNodes: FlattenNode[] = flattenTreeData(treeData, treeExpandedKeys);
-    this.setUncontrolledState({ treeExpandedKeys, flattenNodes }, true);
+    const flattenNodes: FlattenNode[] = flattenTreeData(treeData, expandedKeys);
+    this.setUncontrolledState({ expandedKeys, flattenNodes }, true);
 
-    if (onTreeExpand) {
-      onTreeExpand(treeExpandedKeys, {
+    if (onExpand) {
+      onExpand(expandedKeys, {
         node: treeNode,
         expanded: targetExpanded,
         nativeEvent: e.nativeEvent,
@@ -549,7 +548,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
       return loadPromise
         ? loadPromise.then(() => {
             // [Legacy] Refresh logic
-            const newFlattenTreeData = flattenTreeData(this.state.treeData, treeExpandedKeys);
+            const newFlattenTreeData = flattenTreeData(this.state.treeData, expandedKeys);
             this.setUncontrolledState({ flattenNodes: newFlattenTreeData });
           })
         : null;
@@ -577,7 +576,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
 
   getTreeNodeRequiredProps = () => {
     const {
-      treeExpandedKeys,
+      expandedKeys,
       selectedKeys,
       loadedKeys,
       loadingKeys,
@@ -586,7 +585,7 @@ class Tree extends React.Component<TreeProps, TreeState> {
       keyEntities,
     } = this.state;
     return {
-      treeExpandedKeys: treeExpandedKeys || [],
+      expandedKeys: expandedKeys || [],
       selectedKeys: selectedKeys || [],
       loadedKeys: loadedKeys || [],
       loadingKeys: loadingKeys || [],
@@ -740,7 +739,6 @@ class Tree extends React.Component<TreeProps, TreeState> {
             tabIndex={tabIndex}
             activeItem={this.getActiveItem()}
             onFocus={this.onFocus}
-            onKeyDown={this.onKeyDown}
             onActiveChange={this.onActiveChange}
             {...this.getTreeNodeRequiredProps()}
             {...domProps}
@@ -751,4 +749,5 @@ class Tree extends React.Component<TreeProps, TreeState> {
   }
 }
 
+polyfill(Tree);
 export default Tree;

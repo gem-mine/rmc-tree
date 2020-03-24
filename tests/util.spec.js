@@ -5,7 +5,6 @@ import Tree, { TreeNode } from '../src';
 import {
   convertDataToTree,
   conductExpandParent,
-  getDragNodesKeys,
   getDataAndAria,
   parseCheckedKeys,
 } from '../src/util';
@@ -134,6 +133,7 @@ describe('Util', () => {
           valueEntities: {},
         }),
         processEntity: (entity, wrapper) => {
+          /* eslint-disable no-param-reassign */
           wrapper.valueEntities[entity.node.value] = entity;
         },
         onProcessFinished,
@@ -415,7 +415,6 @@ describe('Util', () => {
       checkedKeys: [],
       halfCheckedKeys: [],
       dragOverNodeKey: null,
-      dropPosition: null,
       keyEntities: {},
     });
 
